@@ -5,6 +5,9 @@ import datetime
 import requests
 from bs4 import BeautifulSoup
 
+from pandas.tseries.offsets import BDay
+
+
 #need Company CIK code from SEC Edgar, remember to write a code that gets CIK code from TICKER later.
 
 Base_url=("https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK="+"0000019617"+
@@ -38,7 +41,7 @@ df.columns = ['filing_type','filing_date']
 df.drop(0,axis=0,inplace=True)
 
 df = df[df.filing_type != "10-Q/A"]
-print(df)
+
 
 Base_url2=("https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK="+"0000019617"+
             "&type=10-k&dateb=&owner=exclude&count=40")
@@ -77,4 +80,32 @@ df3 = pd.concat(joindfs,axis=0,ignore_index=True)
 df3['filing_date']=pd.to_datetime(df3.filing_date)
 #df3.sort('filing_date')
 df3.sort_values(by=['filing_date'],inplace=True)
-print(df3)
+
+filedates = list(df3['filing_date'])
+
+spreads = pd.read_csv('C:\\users\\caada\\projects\\swapspreadsignal\\10YSS.csv',index_col='Date')
+spreads.index = pd.to_datetime(spreads.index)
+spreads.sort_index(inplace=True)
+
+spreads = spreads.subtract(spreads.shift(1))
+
+cases = {}
+
+for d in filedates:
+    window_start = d - BDay(20)
+    window_end = d + BDay(20)
+
+    if window_start not in spreads.index:
+        pass
+    else:
+        window = pd.date_range(window_start,window_end,freq=BDay())
+        window = list(window)
+
+        values = list(spreads.loc[window,'10YYSS'])
+
+        cases.update({d:values})
+
+cases_df = pd.DataFrame.from_dict(cases)
+
+cases_df.to_csv('cases_output.csv')
+
